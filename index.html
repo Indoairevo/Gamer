@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SUPRA GT — Highway Rush</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07101d;font-family:Inter,system-ui,Arial;color:#fff}
+#game{position:fixed;inset:0}canvas{display:block}
+.hud{position:fixed;inset:0;pointer-events:none;padding:clamp(14px,3vw,30px);display:flex;flex-direction:column;justify-content:space-between}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.brand{font-weight:950;letter-spacing:.18em;font-size:clamp(16px,3vw,25px);text-shadow:0 3px 18px #000}.brand span{color:#ff3d35}.stats{display:flex;gap:9px}.stat{background:#07101dbb;border:1px solid #ffffff25;border-radius:13px;padding:9px 14px;min-width:82px;backdrop-filter:blur(10px)}.stat small{display:block;color:#9db0c7;font-size:9px;letter-spacing:.16em;font-weight:800}.stat b{font-size:20px;font-variant-numeric:tabular-nums}
+.bottom{display:flex;justify-content:space-between;align-items:end}.hint{font-size:11px;color:#c4d0df;background:#07101dbb;border:1px solid #ffffff20;padding:10px 13px;border-radius:12px;backdrop-filter:blur(8px)}
+#overlay{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(120deg,#07101dcc,#07101d77);z-index:4}
+.panel{width:min(90vw,460px);padding:34px;border:1px solid #ffffff30;border-radius:24px;background:linear-gradient(145deg,#14243bea,#081321ee);box-shadow:0 30px 100px #0009;text-align:center;backdrop-filter:blur(18px)}
+.kicker{color:#ff5a50;font-size:11px;letter-spacing:.28em;font-weight:900}.panel h1{font-size:clamp(36px,8vw,58px);line-height:.95;margin:13px 0 12px;font-weight:1000;letter-spacing:-.06em}.panel h1 em{font-style:normal;color:#ff453b}.panel p{color:#b8c7d9;line-height:1.6;font-size:14px;margin:0 0 22px}.btn{pointer-events:auto;border:0;border-radius:12px;padding:15px 24px;background:linear-gradient(100deg,#ff3e36,#ff7b35);color:white;font-size:13px;font-weight:950;letter-spacing:.14em;cursor:pointer;box-shadow:0 8px 25px #ff493c55}.sub{font-size:10px!important;color:#7f93aa!important;margin:15px 0 0!important}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:#07101d;z-index:8;font-weight:800;letter-spacing:.12em;color:#fff}
+.bar{width:180px;height:3px;background:#25364a;margin:15px auto;border-radius:4px;overflow:hidden}.bar i{display:block;width:40%;height:100%;background:#ff493e;animation:load 1s infinite alternate}@keyframes load{to{transform:translateX(150px)}}
+#touch{position:fixed;bottom:24px;left:0;right:0;display:none;justify-content:space-between;padding:0 22px;pointer-events:none;z-index:3}
+.touchbtn{pointer-events:auto;width:66px;height:66px;border:1px solid #ffffff50;border-radius:20px;background:#081523aa;color:#fff;font-size:26px;backdrop-filter:blur(8px);touch-action:none}
+@media(pointer:coarse){#touch{display:flex}.hint{display:none}.bottom{justify-content:center}}
+@media(max-width:520px){.stats{gap:5px}.stat{padding:7px 9px;min-width:65px}.stat b{font-size:16px}.stat small{font-size:8px}.panel{padding:27px 22px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="loading">PREPARING YOUR SUPRA<div class="bar"><i></i></div><small style="font-size:10px;color:#8295aa">LOADING 3D CAR MODEL</small></div>
+<div class="hud">
+ <div class="top"><div class="brand">SUPRA <span>GT</span><div style="font-size:9px;color:#9aadc2;letter-spacing:.28em;margin-top:5px">HIGHWAY RUSH</div></div>
+ <div class="stats"><div class="stat"><small>SPEED</small><b><span id="speed">0</span><small style="display:inline;color:#9db0c7"> KM/H</small></b></div><div class="stat"><small>DISTANCE</small><b id="distance">0</b></div><div class="stat"><small>SCORE</small><b id="score">0</b></div></div></div>
+ <div class="bottom"><div class="hint">← → STEER &nbsp; • &nbsp; W / ↑ ACCELERATE &nbsp; • &nbsp; SPACE NITRO</div><div class="hint">DODGE TRAFFIC · DON'T CRASH</div></div>
+</div>
+<div id="touch"><button class="touchbtn" id="left">‹</button><button class="touchbtn" id="nitro">⚡</button><button class="touchbtn" id="right">›</button></div>
+<div id="overlay"><div class="panel"><div class="kicker">TOYOTA GAZOO RACING</div><h1>HIGHWAY<br><em>RUSH.</em></h1><p>Take control of the Supra GT. Thread through traffic, build speed and chase a new high score.</p><button class="btn" id="start">START ENGINE</button><p class="sub">ARROWS / A-D TO STEER · W OR ↑ TO ACCELERATE · SPACE FOR NITRO</p></div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const mount=document.querySelector('#game'), loading=document.querySelector('#loading');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x91b8d0);scene.fog=new THREE.Fog(0x91b8d0,55,190);
+const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,350);camera.position.set(0,5.2,10.5);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;mount.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe5f5ff,0x526071,2.1));
+const sun=new THREE.DirectionalLight(0xffe4c0,3.3);sun.position.set(-12,24,10);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
+const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const asphalt=mat(0x252c35,.95), lineMat=mat(0xf3f3e8), grass=mat(0x567c4b), rail=mat(0x9aa8b4,.5,.65);
+const road=new THREE.Mesh(new THREE.PlaneGeometry(15,240),asphalt);road.rotation.x=-Math.PI/2;road.position.set(0,-.06,-95);road.receiveShadow=true;scene.add(road);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(260,300),grass);ground.rotation.x=-Math.PI/2;ground.position.set(0,-.15,-95);scene.add(ground);
+for(let x of [-7.55,7.55]){let r=new THREE.Mesh(new THREE.BoxGeometry(.22,.45,240),rail);r.position.set(x,.18,-95);scene.add(r)}
+const laneMarks=[];for(let z=-220;z<18;z+=10)for(let x of [-2.5,2.5]){let m=new THREE.Mesh(new THREE.BoxGeometry(.13,.025,4.5),lineMat);m.position.set(x,.005,z);scene.add(m);laneMarks.push(m)}
+// roadside trees and distant scenery
+const trunk=mat(0x59412d), leaves=mat(0x315c3b);
+for(let i=0;i<56;i++){let z=-220+i*4.5;for(let side of [-1,1]){let x=side*(10+Math.random()*8),h=2.5+Math.random()*3;let t=new THREE.Mesh(new THREE.CylinderGeometry(.13,.2,h*.48,6),trunk);t.position.set(x,h*.24,z);scene.add(t);let crown=new THREE.Mesh(new THREE.ConeGeometry(1.1+Math.random()*.5,h*.62,7),leaves);crown.position.set(x,h*.72,z);scene.add(crown)}}
+const carRoot=new THREE.Group();scene.add(carRoot);let car=null;
+new GLTFLoader().load('./source/supra.glb',g=>{
+ car=g.scene;const box=new THREE.Box3().setFromObject(car),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+ car.position.sub(center);const scale=4.65/Math.max(size.x,size.z);car.scale.setScalar(scale);car.rotation.y=Math.PI;car.position.y=.18;car.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.envMapIntensity=1.25}}});carRoot.add(car);loading.style.display='none';
+},undefined,e=>{loading.innerHTML='3D MODEL FAILED TO LOAD<br><small>Run this game through a local web server.</small>'});
+const obstacles=[];const trafficColors=[0xe23b35,0x1769aa,0xe6e8ed,0x202832,0xe6a52d];
+function makeTraffic(){let g=new THREE.Group(),color=trafficColors[Math.floor(Math.random()*trafficColors.length)];let body=new THREE.Mesh(new THREE.BoxGeometry(1.65,.62,3.25),mat(color,.32,.45));body.position.y=.72;g.add(body);let cabin=new THREE.Mesh(new THREE.BoxGeometry(1.35,.65,1.55),mat(0x182b3c,.2,.35));cabin.position.set(0,1.28,-.15);g.add(cabin);for(let x of [-.88,.88])for(let z of [-1,1]){let w=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.18,12),mat(0x111318));w.rotation.z=Math.PI/2;w.position.set(x,.38,z);g.add(w)}scene.add(g);g.position.set([-5,0,5][Math.floor(Math.random()*3)],0,-110);obstacles.push(g)}
+let keys={},running=false,gameOver=false,speed=0,dist=0,score=0,playerX=0,spawn=0,nitro=0;
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(['ArrowLeft','ArrowRight','ArrowUp',' '].includes(e.key))e.preventDefault();if(gameOver&&e.key==='Enter')reset()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function bindHold(id,key){let el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true});['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,()=>keys[key]=false))}
+bindHold('left','arrowleft');bindHold('right','arrowright');bindHold('nitro',' ');
+document.querySelector('#start').onclick=()=>{document.querySelector('#overlay').style.display='none';running=true};
+function reset(){obstacles.forEach(o=>scene.remove(o));obstacles.length=0;speed=0;dist=0;score=0;playerX=0;spawn=0;gameOver=false;running=true;document.querySelector('#overlay').style.display='none'}
+function endGame(){running=false;gameOver=true;document.querySelector('.kicker').textContent='RACE OVER';document.querySelector('h1').innerHTML='NICE<br><em>DRIVE.</em>';document.querySelector('.panel p').textContent=`You covered ${Math.floor(dist)} metres and scored ${score.toLocaleString()}. Ready for another run?`;document.querySelector('#start').textContent='RACE AGAIN';document.querySelector('.sub').textContent='PRESS ENTER OR TAP RACE AGAIN';document.querySelector('#overlay').style.display='grid';document.querySelector('#start').onclick=reset}
+let last=performance.now();
+function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.04);last=now;
+ if(running){let accel=keys['w']||keys['arrowup'];let boosting=keys[' ']&&nitro<1;if(accel)speed=Math.min(speed+44*dt,boosting?245:190);else speed=Math.max(speed-24*dt,0);if(boosting){speed=Math.min(speed+65*dt,260);nitro+=dt*.42}else nitro=Math.max(0,nitro-dt*.16);
+ let steer=(keys['arrowleft']||keys['a']?-1:0)+(keys['arrowright']||keys['d']?1:0);playerX=THREE.MathUtils.clamp(playerX+steer*8*dt,-5.2,5.2);carRoot.position.x=THREE.MathUtils.damp(carRoot.position.x,playerX,10,dt);carRoot.rotation.z=THREE.MathUtils.damp(carRoot.rotation.z,-steer*.12,8,dt);
+ let move=(speed/3.6)*dt;dist+=move;score+=Math.floor(move*2);for(let m of laneMarks){m.position.z+=move;if(m.position.z>12)m.position.z-=240}
+ spawn-=dt;if(spawn<=0){makeTraffic();spawn=Math.max(.55,1.55-speed/260)}
+ for(let i=obstacles.length-1;i>=0;i--){let o=obstacles[i];o.position.z+=move*.88;if(Math.abs(o.position.z-carRoot.position.z)<2.1&&Math.abs(o.position.x-playerX)<1.35){endGame();break}if(o.position.z>15){scene.remove(o);obstacles.splice(i,1);score+=100}}
+ camera.position.x=THREE.MathUtils.damp(camera.position.x,playerX*.34,2.4,dt);camera.lookAt(playerX*.12,1,-8);
+ document.querySelector('#speed').textContent=Math.round(speed);document.querySelector('#distance').textContent=Math.floor(dist);document.querySelector('#score').textContent=score.toLocaleString();
+ }
+ renderer.render(scene,camera)}
+requestAnimationFrame(animate);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.8))});
+</script>
+</body></html>
